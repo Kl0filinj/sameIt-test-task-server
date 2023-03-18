@@ -7,4 +7,5 @@ CREATE TABLE user (
   role userRoles NOT NULL,
   dateCreate timestamp default now(),
   profileId INTEGER NOT NULL,
+  FOREIGN KEY (profileId) REFERENCES profile(id)
 );
