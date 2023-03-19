@@ -6,7 +6,7 @@ const registerSchema = Joi.object({
   lastName: Joi.string().required(),
   email: Joi.string().email().required(),
   role: Joi.string().valid("admin", "writer", "visitor").required(),
-  state: Joi.string().valid("male", "female").required(),
+  gender: Joi.string().valid("male", "female").required(),
 });
 
 module.exports = {

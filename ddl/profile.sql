@@ -1,6 +1,6 @@
 CREATE TYPE stateTypes AS ENUM ('male', 'female');
 
-CREATE TABLE profile (
+CREATE TABLE profiles (
   id SERIAL PRIMARY KEY,
   firstName VARCHAR(50) NOT NULL,
   lastName VARCHAR(50) NOT NULL,
