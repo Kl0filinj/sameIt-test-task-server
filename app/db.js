@@ -9,6 +9,8 @@ const client = new Client({
 client.connect();
 client
   .query("select now()")
-  .then((res) => console.log("DB connected successfully " + res.rows[0].now));
+  .then((res) =>
+    console.log("DB ^_^ connected successfully " + res.rows[0].now)
+  );
 
 module.exports = client;
