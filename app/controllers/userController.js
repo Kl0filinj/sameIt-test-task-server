@@ -1,5 +1,6 @@
 const client = require("../db");
 const { v4: uuidv4 } = require("uuid");
+const RequestError = require("../utils/requestError");
 
 const userAttributes = [
   "id",
@@ -13,16 +14,24 @@ const insertUserAttributes = userAttributes
   .filter((item) => item !== "dateCreate")
   .slice(1)
   .join(", ");
-const selectUserAttributes = userAttributes.join(", ");
+const selectUserAttributes = userAttributes
+  .map((item) => `users.${item}`)
+  .join(", ");
+const updateUserAttributes = userAttributes.slice(1, -2);
 
 const profileAttributes = ["id", "firstName", "lastName", "gender"];
 const insertProfileAttributes = profileAttributes.join(", ");
-// const selectProfileAttributes = ["id", "firstName", "lastName", "gender"];
+const selectProfileAttributes = profileAttributes
+  .slice(1)
+  .map((item) => `profiles.${item}`)
+  .join(" ,");
+const updateProfileAttributes = profileAttributes.slice(1);
 
 const getAllUsers = async (req, res) => {
   const query = `
-    select ${selectUserAttributes}
+    select ${selectUserAttributes}, ${selectProfileAttributes}
     from users
+    join profiles on users.profileId = profiles.id
   `;
   const result = await client.query(query);
 
@@ -41,7 +50,9 @@ const createNewUser = async (req, res) => {
     [profileId, firstName, lastName, gender]
   );
 
-  console.log("profileResponse: ", profileResponse);
+  if (!profileResponse.rowCount) {
+    return RequestError(404, "Something goes wrong with сreating a profile");
+  }
 
   const userResponse = await client.query(
     `
@@ -51,28 +62,58 @@ const createNewUser = async (req, res) => {
     [username, email, role, profileId]
   );
 
-  console.log("userResponse: ", userResponse);
+  if (!userResponse.rowCount) {
+    return RequestError(404, "Something goes wrong with сreating a user");
+  }
 
-  return res.status(201).json({ data: "Посмотри что в респонсах в консоли" });
+  return res
+    .status(201)
+    .json({ data: { username, firstName, lastName, email, role, gender } });
+};
+
+const updateUser = async (req, res) => {
+  const { userId } = req.params;
+  const newAttributes = req.body;
+
+  const validProfileAttributes = Object.keys(newAttributes).filter((item) =>
+    updateProfileAttributes.includes(item)
+  );
+  const validUserAttributes = Object.keys(newAttributes).filter((item) =>
+    updateUserAttributes.includes(item)
+  );
+
+  if (validProfileAttributes.length !== 0) {
+    let query = "update profiles set";
+  }
+
+  console.log("USERID", userId);
+  return res.status(201).json({ data: `UPDATE METHOD` });
 };
 
 const removeUser = async (req, res) => {
-  const { userId } = req;
+  const { profileId } = req.params;
+
   const response = await client.query(
     `
-    delete from users
-    where id = $1
+      delete from users
+      using profiles
+      where users.profileId = $1 AND profiles.id = $1
     `,
-    [userId]
+    [profileId]
   );
 
-  console.log("DELETE Resp", response);
+  if (!response.rowCount) {
+    return RequestError(404, `Fail to delete user profile ${profileId}`);
+  }
 
-  return res.status(201).json({ data: "Посмотри что в респонсах в консоли" });
+  return res
+    .status(201)
+    .json({ data: `User profile ${profileId} was successfully deleted` });
 };
 
 module.exports = {
   getAllUsers,
   createNewUser,
+  updateUser,
   removeUser,
 };

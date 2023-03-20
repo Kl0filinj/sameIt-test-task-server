@@ -2,6 +2,7 @@ const express = require("express");
 const {
   getAllUsers,
   createNewUser,
+  updateUser,
   removeUser,
 } = require("../controllers/userController");
 const { asyncWrapper } = require("../middleware/asyncWrapper");
@@ -16,11 +17,17 @@ router.get("/", asyncWrapper(getAllUsers));
 // ADD new user with profile
 router.post(
   "/",
-  validateBody(schema.registerSchema),
+  validateBody(schema.createUserSchema),
   asyncWrapper(createNewUser)
 );
 
+router.patch(
+  "/:userId",
+  validateBody(schema.updateUserSchema),
+  asyncWrapper(updateUser)
+);
+
 // REMOVE user with profile
-router.delete("/:userId", asyncWrapper(removeUser));
+router.delete("/:profileId", asyncWrapper(removeUser));
 
 module.exports = router;
