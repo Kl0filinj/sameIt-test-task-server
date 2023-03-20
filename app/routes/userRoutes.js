@@ -20,7 +20,7 @@ router.post(
   validateBody(schema.createUserSchema),
   asyncWrapper(createNewUser)
 );
-
+// UPDATE user/profile
 router.patch(
   "/:userId",
   validateBody(schema.updateUserSchema),
