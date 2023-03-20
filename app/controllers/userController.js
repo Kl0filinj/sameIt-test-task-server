@@ -1,39 +1,31 @@
 const client = require("../db");
 const { v4: uuidv4 } = require("uuid");
 const RequestError = require("../utils/requestError");
-
-const userAttributes = [
-  "id",
-  "username",
-  "email",
-  "role",
-  "dateCreate",
-  "profileId",
-];
-const insertUserAttributes = userAttributes
-  .filter((item) => item !== "dateCreate")
-  .slice(1)
-  .join(", ");
-const selectUserAttributes = userAttributes
-  .map((item) => `users.${item}`)
-  .join(", ");
-const updateUserAttributes = userAttributes.slice(1, -2);
-
-const profileAttributes = ["id", "firstName", "lastName", "gender"];
-const insertProfileAttributes = profileAttributes.join(", ");
-const selectProfileAttributes = profileAttributes
-  .slice(1)
-  .map((item) => `profiles.${item}`)
-  .join(" ,");
-const updateProfileAttributes = profileAttributes.slice(1);
+const {
+  User,
+  Profile,
+  calculateAttributesForUpdate,
+} = require("../utils/userControllerUtils");
 
 const getAllUsers = async (req, res) => {
+  const { role } = req.query;
+
+  const userRole = ["admin", "writer", "visitor"].includes(role)
+    ? `where users.role = '${role}'`
+    : "";
+
   const query = `
-    select ${selectUserAttributes}, ${selectProfileAttributes}
+    select ${User("select")}, ${Profile("select")}
     from users
     join profiles on users.profileId = profiles.id
+    ${userRole}
   `;
+
   const result = await client.query(query);
+
+  if (!result.rows) {
+    return RequestError(404, "Something goes wrong with getting a profile");
+  }
 
   return res.status(200).json({ data: result.rows });
 };
@@ -44,7 +36,7 @@ const createNewUser = async (req, res) => {
   const profileId = uuidv4();
   const profileResponse = await client.query(
     `
-  insert into profiles (${insertProfileAttributes})
+  insert into profiles (${Profile("insert")})
   values ($1, $2, $3, $4)
     `,
     [profileId, firstName, lastName, gender]
@@ -56,7 +48,7 @@ const createNewUser = async (req, res) => {
 
   const userResponse = await client.query(
     `
-  insert into users (${insertUserAttributes})
+  insert into users (${User("insert")})
   values ($1, $2, $3, $4)
     `,
     [username, email, role, profileId]
@@ -76,22 +68,64 @@ const updateUser = async (req, res) => {
   const newAttributes = req.body;
 
   const validProfileAttributes = Object.keys(newAttributes).filter((item) =>
-    updateProfileAttributes.includes(item)
-  );
-  const validUserAttributes = Object.keys(newAttributes).filter((item) =>
-    updateUserAttributes.includes(item)
+    Profile("update").includes(item)
   );
 
-  if (validProfileAttributes.length !== 0) {
-    let query = "update profiles set";
+  const validUserAttributes = Object.keys(newAttributes).filter((item) =>
+    User("update").includes(item)
+  );
+
+  let profileId;
+
+  if (validUserAttributes.length !== 0) {
+    const { query, values } = calculateAttributesForUpdate(
+      userId,
+      validUserAttributes,
+      newAttributes,
+      "users"
+    );
+
+    profileId = await client.query(
+      `${query} returning users.profileId`,
+      values
+    );
+
+    if (!profileId.rows[0].profileid) {
+      return RequestError(404, "Something goes wrong with updating user");
+    }
   }
 
-  console.log("USERID", userId);
-  return res.status(201).json({ data: `UPDATE METHOD` });
+  if (validProfileAttributes.length !== 0) {
+    const { query, values } = calculateAttributesForUpdate(
+      profileId.rows[0].profileid,
+      validProfileAttributes,
+      newAttributes,
+      "profiles"
+    );
+
+    const profileUpdateResult = await client.query(query, values);
+
+    if (!profileUpdateResult.rowCount) {
+      return RequestError(404, "Something goes wrong with updating a profile");
+    }
+  }
+
+  return res
+    .status(201)
+    .json({ data: `User profile ${userId} was successfully updated` });
 };
 
 const removeUser = async (req, res) => {
-  const { profileId } = req.params;
+  const { userId } = req.params;
+
+  const query = `
+        select ${User("select")}
+        from users
+        where id = $1
+    `;
+
+  const result = await client.query(query, [userId]);
+  const profileId = result.rows[0].profileid;
 
   const response = await client.query(
     `
@@ -103,12 +137,12 @@ const removeUser = async (req, res) => {
   );
 
   if (!response.rowCount) {
-    return RequestError(404, `Fail to delete user profile ${profileId}`);
+    return RequestError(404, `Fail to delete user profile ${userId}`);
   }
 
   return res
     .status(201)
-    .json({ data: `User profile ${profileId} was successfully deleted` });
+    .json({ data: `User profile ${userId} was successfully deleted` });
 };
 
 module.exports = {

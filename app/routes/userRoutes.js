@@ -28,6 +28,6 @@ router.patch(
 );
 
 // REMOVE user with profile
-router.delete("/:profileId", asyncWrapper(removeUser));
+router.delete("/:userId", asyncWrapper(removeUser));
 
 module.exports = router;
